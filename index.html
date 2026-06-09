@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WM 2026 Tippspiel</title>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <style>
+    :root {
+      --bg-1: #050816;
+      --bg-2: #0b1220;
+      --panel: rgba(255, 255, 255, 0.08);
+      --line: rgba(255, 255, 255, 0.12);
+      --text: #eef2ff;
+      --muted: #b9c2d6;
+      --accent: #7c3aed;
+      --accent-2: #2563eb;
+      --shadow: 0 22px 45px rgba(0, 0, 0, 0.32);
+      --radius: 24px;
+      --font-size: 16px;
+      --page-scale: 1;
+      --spacing: 1;
+      --contrast: 1;
+    }
+
+    * { box-sizing: border-box; }
+    html {
+      font-size: calc(var(--font-size) * var(--spacing));
+      scroll-behavior: smooth;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(124, 58, 237, 0.45), transparent 35%),
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.22), transparent 28%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+      filter: contrast(var(--contrast));
+    }
+
+    body[data-high-contrast="true"] {
+      --bg-1: #000;
+      --bg-2: #000;
+      --panel: rgba(255, 255, 255, 0.12);
+      --line: rgba(255, 255, 255, 0.28);
+      --muted: #f1f5f9;
+      --text: #ffffff;
+    }
+
+    .wrapper {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px;
+      transform: scale(var(--page-scale));
+      transform-origin: top center;
+    }
+
+    .hero,
+    .form-card,
+    .group-card,
+    .access-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero {
+      padding: 28px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.34), rgba(37, 99, 235, 0.14));
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.3rem);
+      line-height: 1.05;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      max-width: 820px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .floating-access {
+      position: fixed;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 999;
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.14);
+      color: var(--text);
+      cursor: pointer;
+      box-shadow: 0 16px 30px rgba(0,0,0,0.32);
+      backdrop-filter: blur(14px);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.15rem;
+      padding: 0;
+    }
+
+    .floating-access span { line-height: 1; }
+
+    .access-panel {
+      display: none;
+      position: fixed;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 998;
+      width: min(320px, calc(100vw - 36px));
+    }
+    .access-panel.open { display: block; }
+
+    .access-card,
+    .form-card {
+      padding: 20px;
+    }
+
+    .access-card {
+      position: relative;
+    }
+
+    .close-access {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.10);
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-size: 1rem;
+    }
+
+    .access-card h2 {
+      margin: 0 40px 14px 0;
+      font-size: 1.12rem;
+    }
+
+    .access-grid,
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field,
+    .access-item {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label { font-size: 0.92rem; color: var(--muted); }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s ease, background .2s ease, transform .2s ease;
+    }
+    input[type="text"]::placeholder,
+    input[type="number"]::placeholder { color: #94a3b8; }
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+      border-color: rgba(124, 58, 237, 0.9);
+      background: rgba(255,255,255,0.12);
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+    .value-line { font-size: 0.92rem; color: var(--text); opacity: 0.9; }
+    .hint,
+    .footer-note { color: var(--muted); font-size: 0.92rem; line-height: 1.5; }
+    .hint { margin-top: 10px; }
+
+    .groups { margin-top: 18px; display: grid; gap: 14px; }
+    details.group-card { overflow: hidden; }
+    summary.group-header {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      background: linear-gradient(90deg, rgba(124,58,237,0.34), rgba(37,99,235,0.16));
+      border-bottom: 1px solid var(--line);
+    }
+    summary.group-header::-webkit-details-marker { display: none; }
+    summary.group-header::after {
+      content: "▼";
+      font-size: 0.9rem;
+      opacity: 0.9;
+      transition: transform .2s ease;
+    }
+    details[open] summary.group-header::after { transform: rotate(180deg); }
+
+    .group-title { display: flex; flex-direction: column; gap: 4px; }
+    .group-title h2 { margin: 0; font-size: 1.15rem; }
+    .group-title span { color: var(--muted); font-size: 0.92rem; }
+
+    .group-body {
+      padding: 16px 18px 18px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .match-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 80px 24px 80px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 12px;
+    }
+    .team { font-weight: 600; line-height: 1.25; }
+    .score { text-align: center; font-weight: 800; font-size: 1.1rem; color: #fff; }
+
+    .actions,
+    .small-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 18px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .2s ease, opacity .2s ease, box-shadow .2s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .7; cursor: not-allowed; transform: none; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #8b5cf6, #2563eb);
+      color: white;
+      box-shadow: 0 12px 28px rgba(59,130,246,0.25);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.10);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .status {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      display: none;
+      border: 1px solid transparent;
+    }
+    .status.show { display: block; }
+    .status.success { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.22); color: #dcfce7; }
+    .status.error { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.22); color: #fee2e2; }
+
+    @media (max-width: 820px) {
+      .wrapper { padding: 16px; }
+      .access-grid, .field-grid { grid-template-columns: 1fr; }
+      .match-row { grid-template-columns: 1fr 72px 20px 72px 1fr; }
+      .floating-access,
+      .access-panel {
+        right: 14px;
+      }
+      .floating-access {
+        top: auto;
+        bottom: 14px;
+        transform: none;
+      }
+      .access-panel {
+        top: auto;
+        bottom: 76px;
+        transform: none;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .hero,
+      .access-card,
+      .form-card,
+      .group-card { border-radius: 20px; }
+      .match-row {
+        grid-template-columns: 1fr 64px 18px 64px 1fr;
+        gap: 8px;
+        padding: 10px;
+      }
+      .team { font-size: 0.92rem; }
+      .access-panel {
+        width: min(300px, calc(100vw - 28px));
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="floating-access" type="button" onclick="toggleAccessibility()" aria-label="Barrierefreiheit öffnen oder schließen" title="Barrierefreiheit">
+    ♿
+  </button>
+
+  <div class="access-panel" id="accessPanel">
+    <div class="access-card">
+      <button class="close-access" type="button" onclick="toggleAccessibility()" aria-label="Schließen">✕</button>
+      <h2>Barrierefreiheit</h2>
+      <div class="access-grid">
+        <div class="access-item">
+          <label for="fontSize">Schriftgröße</label>
+          <input id="fontSize" type="range" min="14" max="24" value="16" oninput="applyAccessibility()" />
+          <div class="value-line" id="fontSizeValue">16px</div>
+        </div>
+        <div class="access-item">
+          <label for="pageScale">Seitengröße</label>
+          <input id="pageScale" type="range" min="90" max="130" value="100" oninput="applyAccessibility()" />
+          <div class="value-line" id="pageScaleValue">100%</div>
+        </div>
+        <div class="access-item">
+          <label for="spacing">Abstand</label>
+          <input id="spacing" type="range" min="100" max="160" value="100" oninput="applyAccessibility()" />
+          <div class="value-line" id="spacingValue">100%</div>
+        </div>
+        <div class="access-item">
+          <label for="contrast">Kontrast</label>
+          <input id="contrast" type="range" min="100" max="170" value="100" oninput="applyAccessibility()" />
+          <div class="value-line" id="contrastValue">100%</div>
+        </div>
+      </div>
+      <div class="small-actions">
+        <button class="btn-secondary" type="button" onclick="toggleHighContrast()">Hoher Kontrast</button>
+        <button class="btn-secondary" type="button" onclick="setLargeText()">Große Schrift</button>
+        <button class="btn-secondary" type="button" onclick="resetAccessibility()">Zurücksetzen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrapper">
+    <section class="hero">
+      <h1>WM 2026 Tippspiel</h1>
+      <p>
+        Trage deinen Namen und deine Klasse ein, tippe die Gruppenspiele ein und sende alles direkt an
+        <strong>event-schule@outlook.de</strong>.
+      </p>
+    </section>
+
+    <section class="form-card">
+      <div class="field-grid">
+        <div class="field">
+          <label for="name">Name *</label>
+          <input id="name" type="text" placeholder="Dein Name" required />
+        </div>
+        <div class="field">
+          <label for="klasse">Klasse *</label>
+          <input id="klasse" type="text" placeholder="z. B. 10a" required />
+        </div>
+      </div>
+      <div class="hint">* Pflichtfelder. Jede Gruppe hat 6 Spiele, jedes Team spielt genau 3-mal.</div>
+    </section>
+
+    <section id="groups" class="groups"></section>
+
+    <div class="actions">
+      <button id="sendBtn" class="btn-primary" type="button" onclick="sendTipps()">Tipps absenden</button>
+      <button class="btn-secondary" type="button" onclick="resetForm()">Alles löschen</button>
+    </div>
+
+    <div id="status" class="status"></div>
+    <div class="footer-note">Tipp: Der Barrierefreiheits-Button bleibt beim Scrollen stehen und ist klein antippbar.</div>
+  </div>
+
+  <script>
+    const SERVICE_ID = "service_7ci4f33";
+    const TEMPLATE_ID = "template_1y9amak";
+    const PUBLIC_KEY = "XvsjnJ8ZfGuRN6IWx";
+    const TARGET_EMAIL = "event-schule@outlook.de";
+
+    const groups = {
+      A: ["Mexiko", "Südafrika", "Südkorea", "Tschechien"],
+      B: ["Kanada", "Bosnien-Herzegowina", "Katar", "Schweiz"],
+      C: ["Brasilien", "Marokko", "Haiti", "Schottland"],
+      D: ["USA", "Paraguay", "Australien", "Türkei"],
+      E: ["Deutschland", "Curacao", "Elfenbeinküste", "Ecuador"],
+      F: ["Niederlande", "Japan", "Schweden", "Tunesien"],
+      G: ["Belgien", "Ägypten", "Iran", "Neuseeland"],
+      H: ["Spanien", "Kap Verde", "Saudi-Arabien", "Uruguay"],
+      I: ["Frankreich", "Senegal", "Irak", "Norwegen"],
+      J: ["Argentinien", "Algerien", "Österreich", "Jordanien"],
+      K: ["Portugal", "DR Kongo", "Usbekistan", "Kolumbien"],
+      L: ["England", "Kroatien", "Ghana", "Panama"]
+    };
+
+    const groupsContainer = document.getElementById("groups");
+    const accessPanel = document.getElementById("accessPanel");
+    const statusBox = document.getElementById("status");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function showStatus(text, type = "success") {
+      statusBox.textContent = text;
+      statusBox.className = `status show ${type}`;
+    }
+
+    function clearStatus() {
+      statusBox.className = "status";
+      statusBox.textContent = "";
+    }
+
+    function toggleAccessibility() {
+      accessPanel.classList.toggle("open");
+    }
+
+    function applyAccessibility() {
+      const fontSize = document.getElementById("fontSize").value;
+      const pageScale = document.getElementById("pageScale").value;
+      const spacing = document.getElementById("spacing").value;
+      const contrast = document.getElementById("contrast").value;
+      document.documentElement.style.setProperty("--font-size", `${fontSize}px`);
+      document.documentElement.style.setProperty("--page-scale", pageScale / 100);
+      document.documentElement.style.setProperty("--spacing", spacing / 100);
+      document.documentElement.style.setProperty("--contrast", contrast / 100);
+      document.getElementById("fontSizeValue").textContent = `${fontSize}px`;
+      document.getElementById("pageScaleValue").textContent = `${pageScale}%`;
+      document.getElementById("spacingValue").textContent = `${spacing}%`;
+      document.getElementById("contrastValue").textContent = `${contrast}%`;
+    }
+
+    function toggleHighContrast() {
+      const enabled = document.body.getAttribute("data-high-contrast") === "true";
+      document.body.setAttribute("data-high-contrast", enabled ? "false" : "true");
+    }
+
+    function setLargeText() {
+      document.getElementById("fontSize").value = 20;
+      document.getElementById("pageScale").value = 105;
+      document.getElementById("spacing").value = 112;
+      document.getElementById("contrast").value = 110;
+      applyAccessibility();
+    }
+
+    function resetAccessibility() {
+      document.body.setAttribute("data-high-contrast", "false");
+      document.getElementById("fontSize").value = 16;
+      document.getElementById("pageScale").value = 100;
+      document.getElementById("spacing").value = 100;
+      document.getElementById("contrast").value = 100;
+      applyAccessibility();
+    }
+
+    function createMatch(group, home, away, id) {
+      return `
+        <div class="match-row">
+          <div class="team">${home}</div>
+          <input type="number" min="0" inputmode="numeric" id="${group}_${id}_h" placeholder="0" aria-label="${home} Tore">
+          <div class="score">:</div>
+          <input type="number" min="0" inputmode="numeric" id="${group}_${id}_a" placeholder="0" aria-label="${away} Tore">
+          <div class="team" style="text-align:right;">${away}</div>
+        </div>
+      `;
+    }
+
+    function getMatchTeams(group, matchId) {
+      const teams = groups[group];
+      const map = {
+        1: { home: teams[0], away: teams[1] },
+        2: { home: teams[2], away: teams[3] },
+        3: { home: teams[0], away: teams[2] },
+        4: { home: teams[1], away: teams[3] },
+        5: { home: teams[0], away: teams[3] },
+        6: { home: teams[1], away: teams[2] }
+      };
+      return map[matchId];
+    }
+
+    function buildGroups() {
+      groupsContainer.innerHTML = "";
+      for (const group in groups) {
+        const teams = groups[group];
+        const card = document.createElement("details");
+        card.className = "group-card";
+        card.open = true;
+        card.innerHTML = `
+          <summary class="group-header">
+            <div class="group-title">
+              <h2>Gruppe ${group}</h2>
+              <span>${teams.join(" · ")}</span>
+            </div>
+          </summary>
+          <div class="group-body">
+            ${createMatch(group, teams[0], teams[1], 1)}
+            ${createMatch(group, teams[2], teams[3], 2)}
+            ${createMatch(group, teams[0], teams[2], 3)}
+            ${createMatch(group, teams[1], teams[3], 4)}
+            ${createMatch(group, teams[0], teams[3], 5)}
+            ${createMatch(group, teams[1], teams[2], 6)}
+          </div>
+        `;
+        groupsContainer.appendChild(card);
+      }
+    }
+
+    function resetForm() {
+      document.getElementById("name").value = "";
+      document.getElementById("klasse").value = "";
+      for (const group in groups) {
+        for (let i = 1; i <= 6; i++) {
+          const h = document.getElementById(`${group}_${i}_h`);
+          const a = document.getElementById(`${group}_${i}_a`);
+          if (h) h.value = "";
+          if (a) a.value = "";
+        }
+      }
+      clearStatus();
+    }
+
+    function buildTextMessage(name, klasse) {
+      let text = `WM 2026 Tippspiel\n\nName: ${name}\nKlasse: ${klasse}\n\n`;
+      for (const group in groups) {
+        text += `Gruppe ${group}\n`;
+        for (let i = 1; i <= 6; i++) {
+          const teams = getMatchTeams(group, i);
+          const home = document.getElementById(`${group}_${i}_h`).value;
+          const away = document.getElementById(`${group}_${i}_a`).value;
+          text += `${teams.home} vs ${teams.away}: ${home === "" ? "-" : home}:${away === "" ? "-" : away}\n`;
+        }
+        text += "\n";
+      }
+      return text;
+    }
+
+    function buildHtmlMessage(name, klasse) {
+      const lines = [];
+      lines.push('<div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;border-radius:16px;color:#0f172a;line-height:1.5">');
+      lines.push('<div style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)">');
+      lines.push('<div style="padding:20px 22px;background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff">');
+      lines.push('<h2 style="margin:0;font-size:22px">WM 2026 Tippspiel</h2>');
+      lines.push('<p style="margin:8px 0 0;opacity:.95">Neue Tippabgabe eingegangen</p>');
+      lines.push('</div>');
+      lines.push('<div style="padding:22px">');
+      lines.push('<table style="width:100%;border-collapse:collapse;margin-bottom:18px">');
+      lines.push(`<tr><td style="padding:10px 0;color:#64748b;width:120px">Name</td><td style="padding:10px 0;font-weight:700">${name}</td></tr>`);
+      lines.push(`<tr><td style="padding:10px 0;color:#64748b">Klasse</td><td style="padding:10px 0;font-weight:700">${klasse}</td></tr>`);
+      lines.push('</table>');
+
+      for (const group in groups) {
+        lines.push(`<div style="margin:18px 0 10px;padding:12px 14px;background:#eef2ff;border-left:5px solid #7c3aed;border-radius:12px;font-weight:800;color:#1e1b4b">Gruppe ${group}</div>`);
+        lines.push('<div style="display:grid;gap:10px">');
+        for (let i = 1; i <= 6; i++) {
+          const teams = getMatchTeams(group, i);
+          const home = document.getElementById(`${group}_${i}_h`).value;
+          const away = document.getElementById(`${group}_${i}_a`).value;
+          lines.push(`
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff">
+              <div style="font-weight:600;color:#0f172a;flex:1">${teams.home} <span style="color:#64748b;font-weight:400">vs</span> ${teams.away}</div>
+              <div style="min-width:72px;text-align:center;font-size:18px;font-weight:800;color:#2563eb">${home === "" ? "-" : home} : ${away === "" ? "-" : away}</div>
+            </div>`);
+        }
+        lines.push('</div>');
+      }
+
+      lines.push('<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e2e8f0;color:#64748b;font-size:13px">Gesendet über das WM 2026 Tippspiel.</div>');
+      lines.push('</div></div></div>');
+      return lines.join('\n');
+    }
+
+    async function sendTipps() {
+      clearStatus();
+
+      const name = document.getElementById("name").value.trim();
+      const klasse = document.getElementById("klasse").value.trim();
+      if (!name || !klasse) {
+        showStatus("Bitte Name und Klasse ausfüllen.", "error");
+        alert("Bitte Name und Klasse ausfüllen.");
+        return;
+      }
+
+      const missingKeys = [SERVICE_ID, TEMPLATE_ID, PUBLIC_KEY].some(v => !v || v.startsWith("DEIN_"));
+      if (missingKeys) {
+        showStatus("EmailJS-Daten fehlen noch. Bitte SERVICE_ID, TEMPLATE_ID und PUBLIC_KEY eintragen.", "error");
+        alert("Bitte SERVICE_ID, TEMPLATE_ID und PUBLIC_KEY eintragen.");
+        return;
+      }
+
+      const subject = `WM 2026 Tippspiel – ${name} (${klasse})`;
+      const messageText = buildTextMessage(name, klasse);
+      const messageHtml = buildHtmlMessage(name, klasse);
+
+      try {
+        sendBtn.disabled = true;
+        sendBtn.textContent = "Sende ...";
+        emailjs.init(PUBLIC_KEY);
+
+        await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+          from_name: name,
+          class_name: klasse,
+          subject,
+          message_text: messageText,
+          message_html: messageHtml,
+          message: messageText,
+          to_email: TARGET_EMAIL
+        });
+
+        showStatus(`Tipps erfolgreich an ${TARGET_EMAIL} gesendet.`, "success");
+        alert("Tipps erfolgreich gesendet!");
+      } catch (error) {
+        console.error(error);
+        showStatus("Fehler beim Senden. Bitte EmailJS-Daten und Template prüfen.", "error");
+        alert("Fehler beim Senden. Bitte EmailJS-Daten prüfen.");
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Tipps absenden";
+      }
+    }
+
+    buildGroups();
+    applyAccessibility();
+  </script>
+</body>
+</html>
